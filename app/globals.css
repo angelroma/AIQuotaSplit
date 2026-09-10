@@ -177,7 +177,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .local-account-totals span, .local-account-totals strong, .local-account-totals small { display: block; }
 .local-account-totals span { color: rgba(255, 253, 248, .5); font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 .local-account-totals strong { margin-top: 5px; color: #fff; font-family: "Iowan Old Style", Georgia, serif; font-size: clamp(24px, 3vw, 34px); font-weight: 500; line-height: 1; letter-spacing: -.025em; }
-.local-account-totals small { margin-top: 7px; color: rgba(255, 253, 248, .46); font-size: 9px; line-height: 1.35; }
+.local-account-totals small { margin-top: 7px; color: rgba(255, 253, 248, .62); font-size: 9px; line-height: 1.35; }
 .quota-meta { display: grid; grid-template-columns: 1fr 1fr; padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, .11); }
 .quota-meta > div { display: flex; align-items: center; gap: 10px; color: rgba(255, 255, 255, .56); font-size: 11px; }
 .quota-meta > div:last-child { display: block; padding-left: 28px; border-left: 1px solid rgba(255, 255, 255, .11); }
