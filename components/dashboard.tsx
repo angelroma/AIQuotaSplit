@@ -47,10 +47,6 @@ export function Dashboard({ initialData }: { initialData: DashboardView }) {
     });
   }
 
-  const reset = data.window.resetsAt
-    ? new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(data.window.resetsAt))
-    : "Waiting for a weekly meter";
-
   return (
     <main className="dashboard-shell">
       <div className="ambient-orbit" aria-hidden="true" />
@@ -77,7 +73,6 @@ export function Dashboard({ initialData }: { initialData: DashboardView }) {
           <h1>One quota. Two fair halves.</h1>
           <p className="hero-copy">A private estimate built from aggregate usage on every registered computer—never prompts, files, or source code.</p>
         </div>
-        <div className="reset-block"><span>Resets</span><strong>{reset}</strong></div>
       </section>
 
       {error ? <p role="alert" className="error-toast">{error}</p> : null}

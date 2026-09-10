@@ -1,6 +1,8 @@
 import { Clock3 } from "lucide-react";
 
 import type { DashboardView } from "@/lib/allocation";
+import { formatCompactTokens, formatEstimatedCost } from "@/lib/usage-format";
+import { ResetCountdown } from "./reset-countdown";
 
 function formatPercent(value: number | null) {
   return value === null ? "—" : `${value.toFixed(value % 1 === 0 ? 0 : 1)}%`;
@@ -13,13 +15,25 @@ export function QuotaCard({ data }: { data: DashboardView }) {
     <article className="quota-card">
       <div className="quota-card-head">
         <div><p className="eyebrow light">Shared account usage</p><div className="quota-number">{formatPercent(data.sharedUsedPercent)}</div></div>
-        <span className="live-pill"><i aria-hidden="true" />Weekly meter</span>
+        <ResetCountdown resetsAt={data.window.resetsAt} />
       </div>
       <div className="meter-wrap">
         <div className="meter" role="progressbar" aria-label="Shared weekly account usage" aria-valuemin={0} aria-valuemax={100} aria-valuenow={data.sharedUsedPercent ?? undefined}>
           <span style={{ width: `${used}%` }} /><i className="half-marker" aria-hidden="true" />
         </div>
         <div className="meter-labels" aria-hidden="true"><span>0</span><span>Your two 50% halves meet here</span><span>100</span></div>
+      </div>
+      <div className="local-account-totals">
+        <div>
+          <span>Observed locally</span>
+          <strong>{formatEstimatedCost(data.localUsage?.estimatedCostUsd ?? null)}</strong>
+          <small>Estimated API-equivalent cost</small>
+        </div>
+        <div>
+          <span>Tokens</span>
+          <strong>{data.localUsage ? formatCompactTokens(data.localUsage.totalTokens) : "Unavailable"}</strong>
+          <small>Across current computer reports</small>
+        </div>
       </div>
       <div className="quota-meta">
         <div><Clock3 aria-hidden="true" className="size-4" /><span>Tracking since<strong>{data.trackingStartedAt ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(data.trackingStartedAt)) : " first sync"}</strong></span></div>
