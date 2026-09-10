@@ -45,6 +45,17 @@ describe("secret verification", () => {
     expect(first).toMatch(/^sha256\$[A-Za-z0-9_-]{43}$/);
     expect(first).not.toContain("token-value");
   });
+
+  it("accepts deterministic SHA-256 verifiers for high-entropy access secrets", async () => {
+    const stored = await hashDeviceToken(
+      "enroll-1234567890abcdefghijklmn",
+    );
+
+    await expect(
+      verifySecret("enroll-1234567890abcdefghijklmn", stored),
+    ).resolves.toBe(true);
+    await expect(verifySecret("wrong", stored)).resolves.toBe(false);
+  });
 });
 
 describe("dashboard sessions", () => {

@@ -55,6 +55,10 @@ export async function hashSecret(
 export async function verifySecret(candidate: string, stored: string) {
   try {
     const [algorithm, iterations, saltValue, digestValue] = stored.split("$");
+    if (algorithm === "sha256" && iterations && !saltValue && !digestValue) {
+      const actual = await crypto.subtle.digest("SHA-256", encoder.encode(candidate));
+      return constantTimeEqual(new Uint8Array(actual), fromBase64Url(iterations));
+    }
     if (
       algorithm !== "pbkdf2-sha256" ||
       Number(iterations) !== PBKDF2_ITERATIONS ||
