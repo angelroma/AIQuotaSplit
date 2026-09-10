@@ -6,7 +6,6 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import type { DashboardView } from "@/lib/allocation";
-import { DeviceList } from "./device-list";
 import { MemberCard } from "./member-card";
 import { QuotaCard } from "./quota-card";
 
@@ -81,9 +80,12 @@ export function Dashboard({ initialData }: { initialData: DashboardView }) {
       <section className="dashboard-grid entrance entrance-3">
         <QuotaCard data={data} />
         <div className="member-stack" aria-label="Member allocation">
-          {data.members.length ? data.members.map((member, index) => (
-            <MemberCard key={member.id} member={member} index={index} />
-          )) : (
+          {data.members.length ? data.members.map((member, index) => {
+            const devices = data.devices.filter((device) => device.memberId === member.id);
+            return (
+              <MemberCard key={member.id} member={member} index={index} devices={devices} onChanged={refresh} />
+            );
+          }) : (
             <div className="empty-members">
               <p className="eyebrow">No members yet</p>
               <h2>Start on the first computer.</h2>
@@ -93,8 +95,6 @@ export function Dashboard({ initialData }: { initialData: DashboardView }) {
           )}
         </div>
       </section>
-
-      <DeviceList devices={data.devices} members={data.members} onChanged={refresh} />
 
       <footer className="dashboard-footer entrance entrance-5">
         <div><span>Last calculated</span><strong>{new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(data.generatedAt))}</strong></div>

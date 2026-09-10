@@ -5,12 +5,16 @@ import { Laptop, MoreHorizontal, RefreshCw, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { DashboardView } from "@/lib/allocation";
+import {
+  formatCompactTokens,
+  formatEstimatedCost,
+} from "@/lib/usage-format";
+import { UsageDetails } from "./usage-details";
 
 const statusCopy = { synced: "Synced", "out-of-sync": "Out of sync", "never-synced": "Never synced" } as const;
 
-export function DeviceList({ devices, members, onChanged }: {
+export function DeviceList({ devices, onChanged }: {
   devices: DashboardView["devices"];
-  members: DashboardView["members"];
   onChanged: () => void;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -32,19 +36,24 @@ export function DeviceList({ devices, members, onChanged }: {
     }
   }
 
-  const owners = new Map(members.map((member) => [member.id, member.displayName]));
   return (
-    <section className="devices-section entrance entrance-4" aria-labelledby="devices-title">
-      <div className="section-heading">
-        <div><p className="eyebrow">Collector status</p><h2 id="devices-title">Registered computers</h2></div>
-        <span>{devices.length} active</span>
-      </div>
+    <section className="devices-section" aria-label="Computers">
       {devices.length ? (
         <div className="device-list">
           {devices.map((device) => (
             <article className="device-row" key={device.id}>
               <span className="device-icon"><Laptop aria-hidden="true" /></span>
-              <div className="device-main"><strong>{device.displayName}</strong><span>{owners.get(device.memberId) ?? "Unknown member"} · {device.platform}</span></div>
+              <div className="device-main"><strong>{device.displayName}</strong><span>{device.platform}</span></div>
+              <div className="device-usage">
+                <div>
+                  <span>Estimated cost</span>
+                  <strong>{formatEstimatedCost(device.localUsage?.estimatedCostUsd ?? null)}</strong>
+                </div>
+                <div>
+                  <span>Tokens</span>
+                  <strong>{device.localUsage ? formatCompactTokens(device.localUsage.totalTokens) : "Unavailable"}</strong>
+                </div>
+              </div>
               <div className="device-sync">
                 <span className={`status-dot ${device.freshness}`}><i aria-hidden="true" />{statusCopy[device.freshness]}</span>
                 <small>{device.lastSyncAt ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(device.lastSyncAt)) : "Run setup, then sync"}</small>
@@ -57,6 +66,7 @@ export function DeviceList({ devices, members, onChanged }: {
                   </button>
                 ) : null}
               </div>
+              <UsageDetails usage={device.localUsage} />
             </article>
           ))}
         </div>
