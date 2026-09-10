@@ -13,6 +13,10 @@ Before the first setup or upload, read [references/privacy.md](references/privac
 
 Do not create a scheduler in this MVP. Explain that results are estimates because ccusage filters by whole local calendar days while the account window can reset mid-day, and because the Codex rate limit is account-wide.
 
+## Response style
+
+Never expose raw JSON. Translate successful command output into short Markdown. Use bold labels, compact token values such as `189.9M tokens`, USD with two decimals, a relative reset followed by the exact reset date, and one dashboard link. Lead with **Setup complete**, **Sync complete**, or **Status** as specified below. Use **Needs attention** for actionable failures and explain the next action in one sentence. Do not claim estimated local cost is subscription billing.
+
 ## Setup
 
 Ask for the dashboard URL and enrollment code. Pass the code through stdin, never as an argument or in visible command output.
@@ -26,12 +30,59 @@ Ask for the dashboard URL and enrollment code. Pass the code through stdin, neve
 
 If the computer is already configured for a different person, explain the change and require explicit confirmation before `setup reassign --member-id <uuid> --url <site> --privacy-accepted --enrollment-code-stdin`. Reassignment is blocked until an active cumulative weekly window ends.
 
+Lead with **Setup complete** after successful registration or reassignment, then show the member, computer, and one dashboard link with bold labels. Keep the receipt brief; do not repeat the enrollment code or raw identifiers.
+
+Format a successful setup receipt like this:
+
+```markdown
+**Setup complete**
+
+- **Member:** <member>
+- **Computer:** <computer>
+
+[Open dashboard](<dashboard-url>)
+```
+
 ## Sync
 
 Run `node <skill-dir>/scripts/ai-quota-split.mjs sync`. Report the returned member, computer, window reset, shared percentage or unavailable state, local token/cost total, queue state, and dashboard URL. If the exact 10,080-minute Codex window is unavailable and there is no still-active saved window, stop; do not invent a window or run ccusage.
 
 On `DEVICE_AUTH_REQUIRED`, recommend setup. Never register automatically. On `CCUSAGE_UNAVAILABLE`, say that nothing was uploaded as zero. On an unreachable dashboard, explain that the newest cumulative report was queued locally.
 
+Lead with **Sync complete** after a successful sync, then show the member, computer, shared percentage or unavailable state, compact local tokens, estimated local cost in USD or `Unavailable`, queue state, the relative reset followed by the exact reset date, and one dashboard link. Label local cost as an API-equivalent estimate, not subscription billing.
+
+Format a successful sync receipt like this:
+
+```markdown
+**Sync complete**
+
+- **Member:** <member>
+- **Computer:** <computer>
+- **Shared usage:** 42%
+- **Local tokens:** 189.9M tokens
+- **Estimated local cost:** $134.29 API-equivalent
+- **Reset:** 6d 18h — Thursday, September 17 at 8:00 AM
+- **Queue:** Clear
+
+[Open dashboard](<dashboard-url>)
+```
+
 ## Status
 
 Run `node <skill-dir>/scripts/ai-quota-split.mjs status`. This reads local AIQuotaSplit state only. Report the member, computer, dashboard URL, last successful sync, queued state, and whether the computer is synced, out of sync after 24 hours, or never synced.
+
+Lead with **Status** and show the member, computer, sync state, last successful sync, queue state, and one dashboard link with bold labels. If the status is actionable, lead with **Needs attention** instead and explain the next action in one sentence.
+
+Format a healthy status receipt like this:
+
+```markdown
+**Status**
+
+- **Member:** <member>
+- **Computer:** <computer>
+- **Sync:** Synced
+- **Last successful sync:** <relative time>
+- **Queue:** Clear
+
+[Open dashboard](<dashboard-url>)
+```
