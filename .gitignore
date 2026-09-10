@@ -46,6 +46,7 @@ next-env.d.ts
 /.codex/
 /outputs/
 /work/
+/.superpowers/
 
 # Local collector state must never enter the repository.
 .ai-quota-split/
