@@ -942,7 +942,7 @@ In `app-server.mjs`, spawn `codex app-server` with piped stdio and a 10-second t
 {"method":"account/rateLimits/read","id":1,"params":{}}
 ```
 
-Ignore notifications, match replies by `id`, validate `usedPercent` 0–100, positive `windowDurationMins`, and positive Unix `resetsAt`, then terminate the child. Accept both a single direct limit object and a `rateLimits` array; choose the item whose duration is closest to 10,080 minutes and reject ambiguity instead of inventing a window. Never print app-server stderr unless redacted.
+Ignore notifications, match replies by `id`, validate `usedPercent` 0–100, positive `windowDurationMins`, and positive Unix `resetsAt`, then terminate the child. Preflight `account/read` and require ChatGPT-backed authentication. Read `rateLimitsByLimitId.codex` when present, otherwise the backward-compatible `rateLimits` snapshot; inspect both `primary` and `secondary` and select the window whose duration is exactly 10,080 minutes. Do not assume either position is weekly, merge buckets, or choose the nearest duration. If no exact weekly window exists, report it unavailable. Resolve the executable from `CODEX_CLI_PATH`, then `codex` on `PATH`, then `/Applications/ChatGPT.app/Contents/Resources/codex` on macOS. Never print app-server stderr unless redacted.
 
 - [ ] **Step 4: Implement the pinned ccusage runner**
 
