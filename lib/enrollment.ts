@@ -92,7 +92,7 @@ export async function postEnrollmentMember(
     const payload = (await request.json()) as { displayName?: unknown };
     const displayName = memberNameSchema.parse(payload.displayName);
     const member = await createMember(bindings.db, {
-      id: (runtime.randomUUID ?? crypto.randomUUID)(),
+      id: (runtime.randomUUID ?? (() => crypto.randomUUID()))(),
       displayName,
       normalizedName: normalizeMemberName(displayName),
       now: (runtime.now ?? (() => Math.floor(Date.now() / 1000)))(),

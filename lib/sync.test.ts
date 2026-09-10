@@ -143,6 +143,22 @@ describe("collector sync validation", () => {
     expect(await response.json()).toEqual({ error: "INVALID_WINDOW_TIME" });
   });
 
+  it("accepts a tracking start from an earlier weekly window", async () => {
+    const response = await postSyncReport(
+      request(validPayload({
+        trackingStartedAt: new Date((resetsAt - 20_160 * 60) * 1000).toISOString(),
+      })),
+      { db: scriptedD1([]).db },
+      {
+        now: () => now,
+        findDevice: activeDevice,
+        upsertReport: async () => {},
+      },
+    );
+
+    expect(response.status).toBe(202);
+  });
+
   it("rejects reports larger than 128 KiB", async () => {
     const oversized = `${JSON.stringify(validPayload())}${" ".repeat(131_073)}`;
     const response = await postSyncReport(

@@ -97,7 +97,6 @@ export async function postSyncReport(
   if (
     collectedAt < windowStartedAt ||
     collectedAt >= report.windowResetsAt ||
-    trackingStartedAt < windowStartedAt ||
     trackingStartedAt > collectedAt ||
     collectedAt > now + CLOCK_SKEW_SECONDS ||
     now > report.windowResetsAt + CLOCK_SKEW_SECONDS
@@ -106,7 +105,7 @@ export async function postSyncReport(
   }
 
   const stored: SyncReportRecordInput = {
-    id: (runtime.randomUUID ?? crypto.randomUUID)(),
+    id: (runtime.randomUUID ?? (() => crypto.randomUUID()))(),
     deviceId: report.deviceId,
     windowResetsAt: report.windowResetsAt,
     windowDurationMins: report.windowDurationMins,

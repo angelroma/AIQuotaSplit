@@ -1,0 +1,4 @@
+interface:
+  display_name: "AIQuotaSplit"
+  short_description: "Split shared weekly Codex usage privately"
+  default_prompt: "Set up, sync, or check this computer's AIQuotaSplit usage."
