@@ -66,7 +66,8 @@ function aggregateFields(object) {
 }
 
 function modelRows(entry) {
-  const candidate = entry?.modelBreakdowns ?? entry?.modelBreakdown ?? entry?.breakdown;
+  const candidate = entry?.modelBreakdowns ?? entry?.modelBreakdown ?? entry?.breakdown ??
+    (entry?.models && !Array.isArray(entry.models) ? entry.models : undefined);
   if (Array.isArray(candidate)) return candidate.filter((value) => value && typeof value === "object");
   if (candidate && typeof candidate === "object") {
     return Object.entries(candidate).map(([modelName, values]) => ({ modelName, ...values }));
@@ -90,6 +91,16 @@ function zero() {
   return { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, totalTokens: 0, estimatedCostUsd: 0 };
 }
 
+function hasDirectAggregate(entry) {
+  return [
+    "inputTokens", "uncachedInputTokens", "totalInputTokens",
+    "outputTokens", "totalOutputTokens",
+    "cacheReadTokens", "cacheReadInputTokens", "cachedInputTokens", "totalCacheReadTokens",
+    "cacheCreationTokens", "cacheWriteTokens", "cacheWriteInputTokens", "totalCacheCreationTokens",
+    "costUSD", "totalCost", "totalCostUSD", "cost",
+  ].some((name) => typeof entry?.[name] === "number" && Number.isFinite(entry[name]) && entry[name] >= 0);
+}
+
 export function parseCcusage(value) {
   const entries = Array.isArray(value?.daily)
     ? value.daily
@@ -99,22 +110,25 @@ export function parseCcusage(value) {
         ? [value.totals ?? value.summary]
         : [];
   const modelsByName = new Map();
+  const totals = zero();
 
   for (const entry of entries) {
     const models = modelRows(entry);
     const safeModels = models.length ? models : [
       { ...entry, modelName: "all-models" },
     ];
+    const derivedEntryTotals = zero();
     for (const model of safeModels) {
       const name = String(model.modelName ?? model.model ?? model.name ?? "unknown-model").slice(0, 128);
       const safeName = modelsByName.has(name) || modelsByName.size < 63 ? name : "other-models";
       if (!modelsByName.has(safeName)) modelsByName.set(safeName, zero());
-      add(modelsByName.get(safeName), aggregateFields(model));
+      const modelTotals = aggregateFields(model);
+      add(modelsByName.get(safeName), modelTotals);
+      add(derivedEntryTotals, modelTotals);
     }
+    add(totals, hasDirectAggregate(entry) ? aggregateFields(entry) : derivedEntryTotals);
   }
 
-  const totals = zero();
-  for (const model of modelsByName.values()) add(totals, model);
   if (modelsByName.size === 0) totals.estimatedCostUsd = 0;
   const modelBreakdown = Object.fromEntries(modelsByName);
   return { ...totals, modelBreakdown };

@@ -51,6 +51,52 @@ test("documented type/data/summary totals do not parse as zero", async () => {
   assert.deepEqual(Object.keys(result.modelBreakdown), ["all-models"]);
 });
 
+test("ccusage 20 model maps keep aggregate totals and expose each model", async () => {
+  const result = await collectUsage(window, {
+    run: async () => JSON.stringify({
+      daily: [{
+        date: "2026-09-10",
+        inputTokens: 7_415_992,
+        outputTokens: 746_896,
+        cacheCreationTokens: 0,
+        cacheReadTokens: 254_993_280,
+        totalTokens: 263_156_168,
+        costUSD: 186.98348,
+        models: {
+          "gpt-5.5": {
+            inputTokens: 2_204_060,
+            outputTokens: 24_747,
+            cacheCreationTokens: 0,
+            cacheReadTokens: 11_217_664,
+            totalTokens: 13_446_471,
+          },
+          "gpt-5.6-sol": {
+            inputTokens: 5_211_932,
+            outputTokens: 722_149,
+            cacheCreationTokens: 0,
+            cacheReadTokens: 243_775_616,
+            totalTokens: 249_709_697,
+          },
+        },
+      }],
+      totals: {
+        inputTokens: 7_415_992,
+        outputTokens: 746_896,
+        cacheCreationTokens: 0,
+        cacheReadTokens: 254_993_280,
+        totalTokens: 263_156_168,
+        costUSD: 186.98348,
+      },
+    }),
+  });
+
+  assert.equal(result.totalTokens, 263_156_168);
+  assert.equal(result.estimatedCostUsd, 186.98348);
+  assert.deepEqual(Object.keys(result.modelBreakdown), ["gpt-5.5", "gpt-5.6-sol"]);
+  assert.equal(result.modelBreakdown["gpt-5.5"].totalTokens, 13_446_471);
+  assert.equal(result.modelBreakdown["gpt-5.5"].estimatedCostUsd, null);
+});
+
 test("npx and ccusage both receive offline mode", () => {
   const args = buildCcusageArgs("20260901", "20260908");
   assert.equal(args.filter((value) => value === "--offline").length, 2);
