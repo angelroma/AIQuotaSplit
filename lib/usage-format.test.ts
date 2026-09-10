@@ -21,7 +21,7 @@ describe("usage formatters", () => {
     expect(formatResetCountdown(6 * 86_400 + 18 * 3_600)).toBe("6d 18h");
     expect(formatResetCountdown(3 * 3_600 + 24 * 60)).toBe("3h 24m");
     expect(formatResetCountdown(45 * 60)).toBe("45m");
-    expect(formatResetCountdown(-1)).toBe("Reset due");
+    expect(formatResetCountdown(-1)).toBe("Waiting for a weekly meter");
   });
 
   it("formats the exact reset in the local locale and time zone", () => {

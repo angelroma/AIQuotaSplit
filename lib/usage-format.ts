@@ -18,7 +18,7 @@ export function formatEstimatedCost(value: number | null) {
 }
 
 export function formatResetCountdown(secondsRemaining: number) {
-  if (secondsRemaining <= 0) return "Reset due";
+  if (secondsRemaining <= 0) return "Waiting for a weekly meter";
   const days = Math.floor(secondsRemaining / 86_400);
   const hours = Math.floor((secondsRemaining % 86_400) / 3_600);
   const minutes = Math.floor((secondsRemaining % 3_600) / 60);
