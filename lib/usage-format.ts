@@ -1,5 +1,7 @@
+const NUMBER_LOCALE = "en-US";
+
 export function formatCompactTokens(value: number) {
-  const formatted = new Intl.NumberFormat(undefined, {
+  const formatted = new Intl.NumberFormat(NUMBER_LOCALE, {
     notation: "compact",
     maximumFractionDigits: 1,
   }).format(value);
@@ -9,7 +11,7 @@ export function formatCompactTokens(value: number) {
 export function formatEstimatedCost(value: number | null) {
   return value === null
     ? "Unavailable"
-    : new Intl.NumberFormat(undefined, {
+    : new Intl.NumberFormat(NUMBER_LOCALE, {
         style: "currency",
         currency: "USD",
         minimumFractionDigits: 2,

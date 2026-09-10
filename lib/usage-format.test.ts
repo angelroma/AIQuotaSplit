@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   formatCompactTokens,
@@ -8,6 +8,10 @@ import {
 } from "./usage-format";
 
 describe("usage formatters", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("formats token totals compactly", () => {
     expect(formatCompactTokens(189_854_215)).toBe("189.9M tokens");
   });
@@ -15,6 +19,18 @@ describe("usage formatters", () => {
   it("formats estimated costs as USD or unavailable", () => {
     expect(formatEstimatedCost(134.29087)).toBe("$134.29");
     expect(formatEstimatedCost(null)).toBe("Unavailable");
+  });
+
+  it("uses an explicit deterministic locale for token and cost numbers", () => {
+    const numberFormat = vi.spyOn(Intl, "NumberFormat");
+
+    formatCompactTokens(189_854_215);
+    formatEstimatedCost(134.29087);
+
+    expect(numberFormat.mock.calls.map(([locale]) => locale)).toEqual([
+      "en-US",
+      "en-US",
+    ]);
   });
 
   it("formats reset countdowns at day, hour, and minute boundaries", () => {
