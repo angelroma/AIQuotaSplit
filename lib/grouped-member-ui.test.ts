@@ -29,8 +29,16 @@ describe("grouped member dashboard composition", () => {
     expect(memberCard).toContain("formatEstimatedCost");
     expect(memberCard).toContain("formatCompactTokens");
     expect(memberCard).toMatch(
-      /<DeviceList devices=\{devices\} onChanged=\{onChanged\}/,
+      /<DeviceList devices=\{devices\} memberName=\{member\.displayName\} onChanged=\{onChanged\}/,
     );
+  });
+
+  it("gives every computer region an owner-specific accessible name", () => {
+    expect(deviceList).toContain("memberName: string");
+    expect(deviceList).toContain(
+      'aria-label={`${memberName}’s computers`}',
+    );
+    expect(deviceList).not.toContain('aria-label="Computers"');
   });
 
   it("makes the computer list owner-scoped and keeps revoke behavior", () => {

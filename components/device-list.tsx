@@ -13,8 +13,9 @@ import { UsageDetails } from "./usage-details";
 
 const statusCopy = { synced: "Synced", "out-of-sync": "Out of sync", "never-synced": "Never synced" } as const;
 
-export function DeviceList({ devices, onChanged }: {
+export function DeviceList({ devices, memberName, onChanged }: {
   devices: DashboardView["devices"];
+  memberName: string;
   onChanged: () => void;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -37,7 +38,7 @@ export function DeviceList({ devices, onChanged }: {
   }
 
   return (
-    <section className="devices-section" aria-label="Computers">
+    <section className="devices-section" aria-label={`${memberName}’s computers`}>
       {devices.length ? (
         <div className="device-list">
           {devices.map((device) => (

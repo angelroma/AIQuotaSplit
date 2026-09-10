@@ -48,7 +48,7 @@ export function MemberCard({ member, index, devices, onChanged }: {
           <div><span>Local tokens</span><strong>{member.localUsage ? formatCompactTokens(member.localUsage.totalTokens) : "Unavailable"}</strong></div>
         </div>
       </div>
-      <DeviceList devices={devices} onChanged={onChanged} />
+      <DeviceList devices={devices} memberName={member.displayName} onChanged={onChanged} />
     </article>
   );
 }
