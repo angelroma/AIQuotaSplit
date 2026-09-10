@@ -37,6 +37,9 @@ function defaultToken() {
 async function authorized(request: Request, bindings: EnrollmentBindings) {
   const header = request.headers.get("Authorization");
   const stored = bindings.enrollmentCodeHash;
+  const candidate = header?.startsWith("Enrollment ")
+    ? header.slice("Enrollment ".length)
+    : null;
   const fingerprint =
     typeof stored === "string"
       ? Array.from(
@@ -52,9 +55,22 @@ async function authorized(request: Request, bindings: EnrollmentBindings) {
     storedParts:
       typeof stored === "string" ? stored.split("$").map((part) => part.length) : null,
     fingerprint,
+    candidateLength: candidate?.length ?? null,
+    candidateFingerprint:
+      candidate === null
+        ? null
+        : Array.from(
+            new Uint8Array(
+              await crypto.subtle.digest(
+                "SHA-256",
+                new TextEncoder().encode(candidate),
+              ),
+            ).slice(0, 6),
+            (byte) => byte.toString(16).padStart(2, "0"),
+          ).join(""),
   });
-  if (!header?.startsWith("Enrollment ")) return false;
-  return verifySecret(header.slice("Enrollment ".length), stored);
+  if (candidate === null) return false;
+  return verifySecret(candidate, stored);
 }
 
 function enrollmentError(error: unknown) {
