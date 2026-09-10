@@ -37,11 +37,21 @@ function defaultToken() {
 async function authorized(request: Request, bindings: EnrollmentBindings) {
   const header = request.headers.get("Authorization");
   const stored = bindings.enrollmentCodeHash;
+  const fingerprint =
+    typeof stored === "string"
+      ? Array.from(
+          new Uint8Array(
+            await crypto.subtle.digest("SHA-256", new TextEncoder().encode(stored)),
+          ).slice(0, 6),
+          (byte) => byte.toString(16).padStart(2, "0"),
+        ).join("")
+      : null;
   console.info("AIQuotaSplit enrollment binding", {
     storedType: typeof stored,
     storedLength: typeof stored === "string" ? stored.length : null,
     storedParts:
       typeof stored === "string" ? stored.split("$").map((part) => part.length) : null,
+    fingerprint,
   });
   if (!header?.startsWith("Enrollment ")) return false;
   return verifySecret(header.slice("Enrollment ".length), stored);
