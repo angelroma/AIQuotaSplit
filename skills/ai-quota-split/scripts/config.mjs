@@ -32,19 +32,70 @@ async function readJson(file) {
   }
 }
 
+function nonempty(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function validDate(value) {
+  return nonempty(value) && Number.isFinite(Date.parse(value));
+}
+
+function validateConfig(value) {
+  const validWindow = value?.lastKnownWindow === null || (
+    value?.lastKnownWindow &&
+    value.lastKnownWindow.windowDurationMins === 10_080 &&
+    Number.isInteger(value.lastKnownWindow.resetsAt) &&
+    value.lastKnownWindow.resetsAt > 0
+  );
+  if (
+    !value || value.schemaVersion !== 1 ||
+    !nonempty(value.dashboardUrl) || !nonempty(value.memberId) ||
+    !nonempty(value.memberDisplayName) || !nonempty(value.deviceId) ||
+    !nonempty(value.deviceDisplayName) || !nonempty(value.deviceToken) ||
+    !validDate(value.trackingStartedAt) || !validWindow ||
+    value.privacyAcceptedVersion !== 1 ||
+    (value.lastSuccessfulSyncAt != null && !validDate(value.lastSuccessfulSyncAt))
+  ) {
+    throw new Error("INVALID_LOCAL_CONFIG");
+  }
+  return value;
+}
+
+function validatePending(value) {
+  if (
+    !value || !nonempty(value.deviceId) ||
+    !Number.isInteger(value.windowResetsAt) || value.windowResetsAt <= 0 ||
+    !validDate(value.collectedAt)
+  ) {
+    throw new Error("INVALID_PENDING_REPORT");
+  }
+  return value;
+}
+
 export async function readConfig(directory = configDirectory()) {
-  return readJson(path.join(directory, "config.json"));
+  try {
+    const value = await readJson(path.join(directory, "config.json"));
+    return value === null ? null : validateConfig(value);
+  } catch {
+    throw new Error("INVALID_LOCAL_CONFIG");
+  }
 }
 
 export async function saveConfig(config, directory = configDirectory()) {
-  await atomicJson(path.join(directory, "config.json"), config, directory);
+  await atomicJson(path.join(directory, "config.json"), validateConfig(config), directory);
 }
 
 export async function readPending(directory = configDirectory()) {
-  return readJson(path.join(directory, "pending-report.json"));
+  try {
+    const value = await readJson(path.join(directory, "pending-report.json"));
+    return value === null ? null : validatePending(value);
+  } catch {
+    throw new Error("INVALID_PENDING_REPORT");
+  }
 }
 
 export async function savePending(report, directory = configDirectory()) {
+  validatePending(report);
   const existing = await readPending(directory);
   const compatible = !existing ||
     report.windowResetsAt > existing.windowResetsAt ||

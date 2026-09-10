@@ -10,10 +10,17 @@ function localDate(seconds) {
 }
 
 async function defaultRun({ since, until }) {
-  const { stdout } = await execFile("npx", [
-    "--offline", "-y", `ccusage@${CCUSAGE_VERSION}`, "codex", "daily", "--json", "--breakdown", "--since", since, "--until", until,
-  ], { encoding: "utf8", maxBuffer: 4 * 1024 * 1024, timeout: 30_000 });
+  const { stdout } = await execFile("npx", buildCcusageArgs(since, until), {
+    encoding: "utf8", maxBuffer: 4 * 1024 * 1024, timeout: 30_000,
+  });
   return stdout;
+}
+
+export function buildCcusageArgs(since, until) {
+  return [
+    "--offline", "-y", `ccusage@${CCUSAGE_VERSION}`, "codex", "daily",
+    "--offline", "--json", "--breakdown", "--since", since, "--until", until,
+  ];
 }
 
 export async function prepareCcusage({ run } = {}) {
@@ -44,23 +51,23 @@ function nullableAmount(object, names) {
 }
 
 function aggregateFields(object) {
-  const inputTokens = amount(object, ["inputTokens", "uncachedInputTokens"]);
-  const outputTokens = amount(object, ["outputTokens"]);
-  const cacheReadTokens = amount(object, ["cacheReadTokens", "cacheReadInputTokens", "cachedInputTokens"]);
-  const cacheCreationTokens = amount(object, ["cacheCreationTokens", "cacheWriteTokens", "cacheWriteInputTokens"]);
+  const inputTokens = amount(object, ["inputTokens", "uncachedInputTokens", "totalInputTokens"]);
+  const outputTokens = amount(object, ["outputTokens", "totalOutputTokens"]);
+  const cacheReadTokens = amount(object, ["cacheReadTokens", "cacheReadInputTokens", "cachedInputTokens", "totalCacheReadTokens"]);
+  const cacheCreationTokens = amount(object, ["cacheCreationTokens", "cacheWriteTokens", "cacheWriteInputTokens", "totalCacheCreationTokens"]);
   return {
     inputTokens,
     outputTokens,
     cacheReadTokens,
     cacheCreationTokens,
     totalTokens: inputTokens + outputTokens + cacheReadTokens + cacheCreationTokens,
-    estimatedCostUsd: nullableAmount(object, ["costUSD", "totalCost", "cost"]),
+    estimatedCostUsd: nullableAmount(object, ["costUSD", "totalCost", "totalCostUSD", "cost"]),
   };
 }
 
 function modelRows(entry) {
-  const candidate = entry?.modelBreakdowns ?? entry?.modelBreakdown ?? entry?.models;
-  if (Array.isArray(candidate)) return candidate;
+  const candidate = entry?.modelBreakdowns ?? entry?.modelBreakdown ?? entry?.breakdown;
+  if (Array.isArray(candidate)) return candidate.filter((value) => value && typeof value === "object");
   if (candidate && typeof candidate === "object") {
     return Object.entries(candidate).map(([modelName, values]) => ({ modelName, ...values }));
   }
@@ -91,7 +98,7 @@ export function parseCcusage(value) {
       : value?.totals || value?.summary
         ? [value.totals ?? value.summary]
         : [];
-  const modelBreakdown = {};
+  const modelsByName = new Map();
 
   for (const entry of entries) {
     const models = modelRows(entry);
@@ -100,14 +107,16 @@ export function parseCcusage(value) {
     ];
     for (const model of safeModels) {
       const name = String(model.modelName ?? model.model ?? model.name ?? "unknown-model").slice(0, 128);
-      modelBreakdown[name] ??= zero();
-      add(modelBreakdown[name], aggregateFields(model));
+      const safeName = modelsByName.has(name) || modelsByName.size < 63 ? name : "other-models";
+      if (!modelsByName.has(safeName)) modelsByName.set(safeName, zero());
+      add(modelsByName.get(safeName), aggregateFields(model));
     }
   }
 
   const totals = zero();
-  for (const model of Object.values(modelBreakdown)) add(totals, model);
-  if (Object.keys(modelBreakdown).length === 0) totals.estimatedCostUsd = 0;
+  for (const model of modelsByName.values()) add(totals, model);
+  if (modelsByName.size === 0) totals.estimatedCostUsd = 0;
+  const modelBreakdown = Object.fromEntries(modelsByName);
   return { ...totals, modelBreakdown };
 }
 

@@ -48,6 +48,7 @@ function runJsonl(executable, { spawn = nodeSpawn, timeoutMs = 10_000 } = {}) {
     const timer = setTimeout(() => finish(new Error("APP_SERVER_TIMEOUT")), timeoutMs);
 
     child.on("error", (error) => finish(error));
+    child.stdin.on("error", (error) => finish(error));
     child.on("close", () => {
       if (!settled) finish(new Error("APP_SERVER_UNAVAILABLE"));
     });
@@ -66,7 +67,7 @@ function runJsonl(executable, { spawn = nodeSpawn, timeoutMs = 10_000 } = {}) {
           responses.set(message.id, message.result);
           if (message.id === 0) {
             send({ method: "initialized", params: {} });
-            send({ method: "account/read", id: 1, params: {} });
+            send({ method: "account/read", id: 1, params: { refreshToken: false } });
           } else if (message.id === 1) {
             send({ method: "account/rateLimits/read", id: 2, params: {} });
           } else if (message.id === 2) {
@@ -87,7 +88,11 @@ async function defaultRunAppServer(messages, options = {}) {
   try {
     return await runJsonl(executable, options);
   } catch (error) {
-    if (executable === "codex" && process.platform === "darwin" && error?.code === "ENOENT") {
+    if (
+      executable === "codex" &&
+      process.platform === "darwin" &&
+      (error?.code === "ENOENT" || error?.message === "APP_SERVER_UNAVAILABLE")
+    ) {
       return runJsonl(BUNDLED_CODEX, options);
     }
     throw error;
@@ -98,7 +103,7 @@ export async function readRateLimits(options = {}) {
   const messages = [
     { method: "initialize", id: 0, params: { clientInfo: { name: "ai_quota_split", title: "AIQuotaSplit", version: "0.1.0" } } },
     { method: "initialized", params: {} },
-    { method: "account/read", id: 1, params: {} },
+    { method: "account/read", id: 1, params: { refreshToken: false } },
     { method: "account/rateLimits/read", id: 2, params: {} },
   ];
   const responses = await (options.runAppServer ?? defaultRunAppServer)(messages, options);

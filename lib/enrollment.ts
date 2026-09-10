@@ -130,7 +130,7 @@ export async function postEnrollmentDevice(
       {
         deviceId: result.device.id,
         memberId: result.device.memberId,
-        deviceToken: result.created ? deviceToken : null,
+        deviceToken,
         created: result.created,
       },
       { status: result.created ? 201 : 200 },

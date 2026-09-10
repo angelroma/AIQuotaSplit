@@ -1,6 +1,6 @@
 # AIQuotaSplit privacy boundary
 
-AIQuotaSplit reads Codex usage logs locally through the pinned `ccusage@20.0.20` package and reads the account-wide Codex weekly rate-limit meter through the local Codex App Server. On first setup, `npx` may download that pinned ccusage package from the npm registry. Later syncs request offline package use.
+AIQuotaSplit reads Codex usage logs locally through the pinned `ccusage@20.0.20` package and reads the account-wide Codex weekly rate-limit meter through the local Codex App Server. On first setup, `npx` may download and execute that pinned third-party ccusage package from the npm registry. Later syncs request offline mode from both npm and ccusage.
 
 Only these aggregate fields are sent to the dashboard:
 
@@ -19,7 +19,7 @@ The collector never sends or intentionally reads for upload:
 - The enrollment code, dashboard password, or raw device bearer token
 - A user name from the operating system, hardware serial number, or an IP-address field
 
-Raw Codex JSONL remains on the computer. ccusage reads it locally and returns aggregates; the skill and dashboard receive only the normalized aggregate result. Ordinary hosting and network infrastructure may process connection metadata such as an IP address, but AIQuotaSplit does not add an IP field to reports or store one in its application database.
+Raw Codex JSONL remains on the computer. ccusage parses it locally and returns aggregates; neither the agent nor the dashboard server receives raw logs. Ordinary hosting and network infrastructure may process connection metadata such as an IP address, but AIQuotaSplit does not add an IP field to reports or store one in its application database.
 
 Local configuration is stored in an owner-only file under `~/.config/ai-quota-split` on macOS/Linux or `%APPDATA%\AIQuotaSplit` on Windows. It contains the device bearer token. The dashboard stores only a SHA-256 hash of that high-entropy token. Dashboard and enrollment secrets are slow-hashed, and dashboard sessions use a signed Secure, HttpOnly, SameSite=Strict cookie.
 

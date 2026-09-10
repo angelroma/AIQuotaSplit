@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { collectUsage } from "../ccusage.mjs";
+import { buildCcusageArgs, collectUsage } from "../ccusage.mjs";
 
 const window = { windowDurationMins: 10_080, resetsAt: 1_789_646_400 };
 
@@ -27,4 +27,32 @@ test("ccusage sums aggregate model fields and drops project metadata", async () 
 
 test("ccusage invalid output is unavailable rather than zero", async () => {
   await assert.rejects(() => collectUsage(window, { run: async () => "not-json" }), /CCUSAGE_UNAVAILABLE/);
+});
+
+test("documented type/data/summary totals do not parse as zero", async () => {
+  const result = await collectUsage(window, {
+    run: async () => JSON.stringify({
+      type: "daily",
+      data: [{
+        date: "2026-09-10",
+        models: ["gpt-5", "gpt-5-mini"],
+        totalInputTokens: 100,
+        totalOutputTokens: 25,
+        totalCacheReadTokens: 20,
+        totalCacheCreationTokens: 10,
+        totalCostUSD: 0.4,
+      }],
+      summary: { totalTokens: 155 },
+    }),
+  });
+
+  assert.equal(result.totalTokens, 155);
+  assert.equal(result.estimatedCostUsd, 0.4);
+  assert.deepEqual(Object.keys(result.modelBreakdown), ["all-models"]);
+});
+
+test("npx and ccusage both receive offline mode", () => {
+  const args = buildCcusageArgs("20260901", "20260908");
+  assert.equal(args.filter((value) => value === "--offline").length, 2);
+  assert.ok(args.indexOf("daily") < args.lastIndexOf("--offline"));
 });

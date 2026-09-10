@@ -45,3 +45,7 @@ next-env.d.ts
 /.codex/
 /outputs/
 /work/
+
+# Local collector state must never enter the repository.
+.ai-quota-split/
+pending-report.json

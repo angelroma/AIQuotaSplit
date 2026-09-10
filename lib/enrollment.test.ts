@@ -97,7 +97,7 @@ describe("member and device enrollment", () => {
     });
   });
 
-  it("returns a device token only when a device is first registered", async () => {
+  it("returns a newly issued device token when a device is registered", async () => {
     const response = await postEnrollmentDevice(
       request("/api/enrollment/devices", {
         method: "POST",
@@ -137,5 +137,36 @@ describe("member and device enrollment", () => {
       deviceToken: "generated-device-token",
       created: true,
     });
+  });
+
+  it("rotates the token during an explicitly authorized recovery registration", async () => {
+    const existing = {
+      id: "018f4d0e-7b8d-7c3a-9af7-03c260b94f3b",
+      member_id: "018f4d0e-7b8d-7c3a-9af7-03c260b94f3c",
+      display_name: "Laptop",
+      platform: "macos",
+      token_hash: "old-hash",
+      registered_at: 1,
+      last_sync_at: null,
+      revoked_at: null,
+    };
+    const response = await postEnrollmentDevice(
+      request("/api/enrollment/devices", {
+        method: "POST",
+        headers: { Authorization: `Enrollment ${enrollmentCode}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deviceId: existing.id,
+          memberId: existing.member_id,
+          displayName: "Laptop",
+          platform: "macos",
+          reassign: false,
+        }),
+      }),
+      await bindings([existing, existing]),
+      { randomToken: () => "rotated-device-token", now: () => 2 },
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ deviceToken: "rotated-device-token", created: false });
   });
 });

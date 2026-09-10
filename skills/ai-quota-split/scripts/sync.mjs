@@ -9,6 +9,7 @@ async function defaultPost(config, payload) {
     method: "POST",
     headers: { Authorization: `Bearer ${config.deviceToken}`, "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(15_000),
   });
 }
 
@@ -27,7 +28,10 @@ export function redactSecrets(text, secrets) {
 async function upload(config, payload, post) {
   const response = await post(config, payload);
   if (authFailure(response)) throw new Error("DEVICE_AUTH_REQUIRED");
-  if (!successful(response)) throw new Error("SYNC_UNAVAILABLE");
+  if (!successful(response)) {
+    const retryable = response?.status === 408 || response?.status === 429 || response?.status >= 500;
+    throw new Error(retryable ? "SYNC_UNAVAILABLE" : "SYNC_REJECTED");
+  }
   return response;
 }
 
@@ -43,14 +47,16 @@ export async function synchronize(dependencies = {}) {
   const now = (dependencies.now ?? (() => Math.floor(Date.now() / 1000)))();
   const config = await loadConfig();
   if (!config?.deviceToken || !config?.dashboardUrl || !config?.deviceId) throw new Error("SETUP_REQUIRED");
+  if (config.privacyAcceptedVersion !== 1) throw new Error("PRIVACY_CONFIRMATION_REQUIRED");
 
-  const pending = await readPending();
-  if (pending) {
+  let unsentPending = await readPending();
+  if (unsentPending) {
     try {
-      await upload(config, pending, post);
+      await upload(config, unsentPending, post);
       await clearPending();
+      unsentPending = null;
     } catch (error) {
-      if (error.message === "DEVICE_AUTH_REQUIRED") throw error;
+      if (error.message === "DEVICE_AUTH_REQUIRED" || error.message === "SYNC_REJECTED") throw error;
     }
   }
 
@@ -92,11 +98,15 @@ export async function synchronize(dependencies = {}) {
   let queued = false;
   try {
     await upload(config, payload, post);
-    await clearPending();
+    const currentSupersedesPending = unsentPending &&
+      unsentPending.deviceId === payload.deviceId &&
+      unsentPending.windowResetsAt === payload.windowResetsAt &&
+      Date.parse(unsentPending.collectedAt) <= Date.parse(payload.collectedAt);
+    if (!unsentPending || currentSupersedesPending) await clearPending();
     nextConfig.lastSuccessfulSyncAt = collectedAt;
     await saveConfig(nextConfig);
   } catch (error) {
-    if (error.message === "DEVICE_AUTH_REQUIRED") throw error;
+    if (error.message === "DEVICE_AUTH_REQUIRED" || error.message === "SYNC_REJECTED") throw error;
     await savePending(payload);
     queued = true;
   }

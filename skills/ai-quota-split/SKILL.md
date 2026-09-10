@@ -19,12 +19,12 @@ Ask for the dashboard URL and enrollment code. Pass the code through stdin, neve
 
 1. Run `node <skill-dir>/scripts/ai-quota-split.mjs setup list --url <site> --enrollment-code-stdin`.
 2. Present every existing member as a numbered choice. Accept a number or a typed name.
-3. For a typed name, use `rankMemberChoices` from `scripts/identity.mjs` conceptually: exact normalized matches may be confirmed directly, but never silently choose a fuzzy match.
+3. For a typed name, pipe the member-list JSON into `node <skill-dir>/scripts/ai-quota-split.mjs identity rank --name <typed-name>`. Use its deterministic choices; exact normalized matches may be confirmed directly, but never silently choose a fuzzy match.
 4. For a close match such as “Migul” and “Miguel,” offer exactly: **Use Miguel**, **Create Migul**, or **Go back**.
 5. For a new name, state that it appears to be a new member and require confirmation before running `setup create-member --name <confirmed>`. Never offer creation when two members already exist.
-6. After an existing or newly created member is explicitly selected, run `setup register --member-id <uuid> --url <site> --enrollment-code-stdin`.
+6. After an existing or newly created member is explicitly selected and the privacy summary is accepted, run `setup register --member-id <uuid> --url <site> --privacy-accepted --enrollment-code-stdin`.
 
-If the computer is already configured for a different person, explain the change and require explicit confirmation before `setup reassign --member-id <uuid> --url <site> --enrollment-code-stdin`. Reassignment is blocked until an active cumulative weekly window ends.
+If the computer is already configured for a different person, explain the change and require explicit confirmation before `setup reassign --member-id <uuid> --url <site> --privacy-accepted --enrollment-code-stdin`. Reassignment is blocked until an active cumulative weekly window ends.
 
 ## Sync
 

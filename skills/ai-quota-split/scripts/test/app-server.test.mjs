@@ -29,6 +29,7 @@ test("app-server initializes and verifies the account before reading rate limits
     "account/read",
     "account/rateLimits/read",
   ]);
+  assert.deepEqual(calls[2].params, { refreshToken: false });
   assert.deepEqual(observed, {
     usedPercent: 38,
     windowDurationMins: 10_080,

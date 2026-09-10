@@ -2,10 +2,12 @@
 import os from "node:os";
 import process from "node:process";
 import { randomUUID } from "node:crypto";
+import { pathToFileURL } from "node:url";
 
 import { prepareCcusage } from "./ccusage.mjs";
 import { readConfig, readPending, saveConfig } from "./config.mjs";
 import { synchronize, redactSecrets } from "./sync.mjs";
+import { rankMemberChoices } from "./identity.mjs";
 
 function argument(name) {
   const index = process.argv.indexOf(name);
@@ -16,8 +18,9 @@ function has(name) {
   return process.argv.includes(name);
 }
 
-function normalizeUrl(value) {
+export function normalizeUrl(value) {
   const url = new URL(value);
+  if (url.username || url.password) throw new Error("DASHBOARD_URL_CREDENTIALS_FORBIDDEN");
   const local = url.hostname === "localhost" || url.hostname === "127.0.0.1";
   if (url.protocol !== "https:" && !(local && url.protocol === "http:")) throw new Error("HTTPS_DASHBOARD_REQUIRED");
   url.pathname = url.pathname.replace(/\/$/u, "");
@@ -26,10 +29,15 @@ function normalizeUrl(value) {
   return url.toString().replace(/\/$/u, "");
 }
 
-async function stdinSecret() {
-  if (!has("--enrollment-code-stdin")) throw new Error("ENROLLMENT_CODE_STDIN_REQUIRED");
+async function readStdin() {
   let value = "";
   for await (const chunk of process.stdin) value += chunk;
+  return value;
+}
+
+async function stdinSecret() {
+  if (!has("--enrollment-code-stdin")) throw new Error("ENROLLMENT_CODE_STDIN_REQUIRED");
+  let value = await readStdin();
   value = value.trim();
   if (value.length < 8) throw new Error("INVALID_ENROLLMENT_CODE");
   return value;
@@ -70,12 +78,16 @@ async function createMember() {
 }
 
 async function registerDevice(reassign = false) {
+  if (!has("--privacy-accepted")) throw new Error("PRIVACY_CONFIRMATION_REQUIRED");
   const existing = await readConfig();
   const url = normalizeUrl(argument("--url") ?? existing?.dashboardUrl);
   const memberId = argument("--member-id");
   if (!memberId) throw new Error("MEMBER_ID_REQUIRED");
   const code = await stdinSecret();
   await prepareCcusage();
+  const members = await enrollmentRequest(url, code, "/api/enrollment/members");
+  const member = members.members.find((candidate) => candidate.id === memberId);
+  if (!member) throw new Error("MEMBER_NOT_FOUND");
   const deviceId = existing?.deviceId ?? randomUUID();
   const deviceDisplayName = existing?.deviceDisplayName ?? os.hostname();
   const result = await enrollmentRequest(url, code, "/api/enrollment/devices", {
@@ -88,9 +100,6 @@ async function registerDevice(reassign = false) {
       reassign,
     }),
   });
-  const members = await enrollmentRequest(url, code, "/api/enrollment/members");
-  const member = members.members.find((candidate) => candidate.id === memberId);
-  if (!member) throw new Error("MEMBER_NOT_FOUND");
   const deviceToken = result.deviceToken ?? existing?.deviceToken;
   if (!deviceToken) throw new Error("DEVICE_TOKEN_UNAVAILABLE");
   await saveConfig({
@@ -104,6 +113,7 @@ async function registerDevice(reassign = false) {
     trackingStartedAt: existing?.trackingStartedAt ?? new Date().toISOString(),
     lastKnownWindow: existing?.lastKnownWindow ?? null,
     lastSuccessfulSyncAt: existing?.lastSuccessfulSyncAt ?? null,
+    privacyAcceptedVersion: 1,
   });
   return { configured: true, member: member.displayName, computer: deviceDisplayName, dashboardUrl: url };
 }
@@ -126,6 +136,14 @@ async function status() {
 
 async function main() {
   const [command, subcommand] = process.argv.slice(2);
+  if (command === "identity" && subcommand === "rank") {
+    const name = argument("--name")?.trim();
+    if (!name) throw new Error("MEMBER_NAME_REQUIRED");
+    const input = JSON.parse(await readStdin());
+    const members = Array.isArray(input) ? input : input.members;
+    if (!Array.isArray(members)) throw new Error("MEMBER_LIST_REQUIRED");
+    return { choices: rankMemberChoices(name, members) };
+  }
   if (command === "setup" && subcommand === "list") return setupList();
   if (command === "setup" && subcommand === "create-member") return createMember();
   if (command === "setup" && subcommand === "register") return registerDevice(false);
@@ -135,10 +153,12 @@ async function main() {
   throw new Error("USAGE: setup list|create-member|register|reassign, sync, or status");
 }
 
-try {
-  const result = await main();
-  process.stdout.write(`${redactSecrets(JSON.stringify(result, null, 2), [])}\n`);
-} catch (error) {
-  process.stderr.write(`${error instanceof Error ? error.message : "AIQUOTASPLIT_FAILED"}\n`);
-  process.exitCode = 1;
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    const result = await main();
+    process.stdout.write(`${redactSecrets(JSON.stringify(result, null, 2), [])}\n`);
+  } catch (error) {
+    process.stderr.write(`${error instanceof Error ? error.message : "AIQUOTASPLIT_FAILED"}\n`);
+    process.exitCode = 1;
+  }
 }

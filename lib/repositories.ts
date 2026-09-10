@@ -221,7 +221,7 @@ export async function registerDevice(
   const updated = await db
     .prepare(
       `UPDATE devices
-       SET member_id = ?, display_name = ?, platform = ?
+       SET member_id = ?, display_name = ?, platform = ?, token_hash = ?
        WHERE id = ?
        RETURNING id, member_id, display_name, platform, token_hash,
                  registered_at, last_sync_at, revoked_at`,
@@ -230,6 +230,7 @@ export async function registerDevice(
       input.memberId,
       input.displayName,
       input.platform,
+      input.tokenHash,
       input.deviceId,
     )
     .first<DeviceRow>();
