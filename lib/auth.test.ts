@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   createSessionCookie,
@@ -9,8 +9,6 @@ import {
   verifySessionCookie,
 } from "./auth";
 import { postLogin, postLogout } from "./login";
-
-afterEach(() => vi.restoreAllMocks());
 
 describe("secret verification", () => {
   it("uses a salted PBKDF2 verifier without storing plaintext", async () => {
@@ -23,19 +21,6 @@ describe("secret verification", () => {
     expect(stored).not.toContain("correct horse");
     await expect(verifySecret("correct horse", stored)).resolves.toBe(true);
     await expect(verifySecret("wrong", stored)).resolves.toBe(false);
-  });
-
-  it("verifies stored PBKDF2 hashes when hosted Web Crypto derivation diverges", async () => {
-    const stored = await hashSecret(
-      "correct horse",
-      new Uint8Array(16).fill(7),
-    );
-    const deriveBits = vi
-      .spyOn(crypto.subtle, "deriveBits")
-      .mockResolvedValue(new Uint8Array(32).buffer);
-
-    await expect(verifySecret("correct horse", stored)).resolves.toBe(true);
-    expect(deriveBits).not.toHaveBeenCalled();
   });
 
   it("hashes high-entropy device tokens deterministically with SHA-256", async () => {

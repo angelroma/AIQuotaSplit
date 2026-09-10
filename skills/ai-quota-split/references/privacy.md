@@ -21,6 +21,6 @@ The collector never sends or intentionally reads for upload:
 
 Raw Codex JSONL remains on the computer. ccusage parses it locally and returns aggregates; neither the agent nor the dashboard server receives raw logs. Ordinary hosting and network infrastructure may process connection metadata such as an IP address, but AIQuotaSplit does not add an IP field to reports or store one in its application database.
 
-Local configuration is stored in an owner-only file under `~/.config/ai-quota-split` on macOS/Linux or `%APPDATA%\AIQuotaSplit` on Windows. It contains the device bearer token. The dashboard stores only a SHA-256 hash of that high-entropy token. Dashboard and enrollment secrets are slow-hashed, and dashboard sessions use a signed Secure, HttpOnly, SameSite=Strict cookie.
+Local configuration is stored in an owner-only file under `~/.config/ai-quota-split` on macOS/Linux or `%APPDATA%\AIQuotaSplit` on Windows. It contains the device bearer token. The dashboard stores only one-way hashes of its generated high-entropy device, dashboard, and enrollment credentials. Dashboard sessions use a signed Secure, HttpOnly, SameSite=Strict cookie.
 
 Reports are cumulative per computer and weekly reset window. A queued report replaces an older compatible report instead of accumulating raw event history. Results are estimates because ccusage date filters operate on local calendar days while the subscription window can reset during a day.

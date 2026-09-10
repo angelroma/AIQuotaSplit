@@ -27,7 +27,7 @@ Setup explains the privacy boundary before the first upload, lists the existing 
 
 The collector uploads token totals, aggregate model names/cost when available, timestamps, device identity, and the account-wide weekly percentage. It never uploads prompts, responses, code, file paths, project names, session IDs, cookies, account credentials, hardware serial numbers, or an application IP-address field.
 
-Raw Codex JSONL remains local. The pinned [`ccusage@20.0.20`](https://ccusage.com/guide/daily-reports) package reads it on the computer and returns aggregates. Device tokens are stored in owner-only local files and only their SHA-256 hashes are stored in D1. Dashboard and enrollment secrets are PBKDF2-hashed; dashboard sessions are signed, Secure, HttpOnly, and SameSite=Strict.
+Raw Codex JSONL remains local. The pinned [`ccusage@20.0.20`](https://ccusage.com/guide/daily-reports) package reads it on the computer and returns aggregates. Device tokens are stored in owner-only local files and only their SHA-256 hashes are stored in D1. Dashboard and enrollment credentials are generated with high entropy and stored as one-way hashes; dashboard sessions are signed, Secure, HttpOnly, and SameSite=Strict.
 
 See the complete [privacy boundary](skills/ai-quota-split/references/privacy.md).
 

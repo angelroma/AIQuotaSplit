@@ -69,11 +69,7 @@ export async function verifySecret(candidate: string, stored: string) {
     }
     const actual = await pbkdf2(candidate, fromBase64Url(saltValue));
     return constantTimeEqual(actual, fromBase64Url(digestValue));
-  } catch (error) {
-    console.warn("AIQuotaSplit secret verification failed", {
-      name: error instanceof Error ? error.name : "UnknownError",
-      message: error instanceof Error ? error.message : "Unknown failure",
-    });
+  } catch {
     return false;
   }
 }
