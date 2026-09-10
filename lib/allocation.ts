@@ -15,11 +15,28 @@ export type DashboardQuality =
   | "rate-limit-unavailable"
   | "unassigned";
 
+export type ModelUsage = {
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  totalTokens: number;
+  estimatedCostUsd: number | null;
+};
+
+export type UsageTotals = Omit<ModelUsage, "model"> & {
+  modelBreakdown: ModelUsage[];
+};
+
+export type DeviceFreshness = "synced" | "out-of-sync" | "never-synced";
+
 export type DashboardView = {
   generatedAt: string;
   sharedUsedPercent: number | null;
   unassignedPercent: number;
   weightBasis: "estimated-cost" | "tokens" | null;
+  localUsage: UsageTotals | null;
   window: {
     startsAt: string | null;
     resetsAt: string | null;
@@ -34,6 +51,9 @@ export type DashboardView = {
     accountPercent: number;
     personalQuotaConsumedPercent: number;
     personalQuotaRemainingPercent: number;
+    localUsage: UsageTotals | null;
+    deviceCount: number;
+    freshness: DeviceFreshness | null;
   }>;
   devices: Array<{
     id: string;
@@ -41,8 +61,9 @@ export type DashboardView = {
     displayName: string;
     platform: string;
     lastSyncAt: string | null;
-    freshness: "synced" | "out-of-sync" | "never-synced";
+    freshness: DeviceFreshness;
     hasCurrentReport: boolean;
+    localUsage: UsageTotals | null;
   }>;
   previousWindows: Array<{
     resetsAt: string;
@@ -64,6 +85,90 @@ function iso(seconds: number | null) {
 
 function round(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function usageFromReport(report: UnknownRow): UsageTotals {
+  let parsedBreakdown: unknown = null;
+  try {
+    parsedBreakdown = JSON.parse(stringValue(report.model_breakdown_json));
+  } catch {
+    // A malformed per-model breakdown must not make the dashboard unavailable.
+  }
+
+  const modelBreakdown =
+    parsedBreakdown &&
+    typeof parsedBreakdown === "object" &&
+    !Array.isArray(parsedBreakdown)
+      ? Object.entries(parsedBreakdown)
+          .filter((entry): entry is [string, UnknownRow] => {
+            const value = entry[1];
+            return (
+              value !== null &&
+              typeof value === "object" &&
+              !Array.isArray(value)
+            );
+          })
+          .map(([model, usage]) => ({
+            model,
+            inputTokens: numberValue(usage.inputTokens) ?? 0,
+            outputTokens: numberValue(usage.outputTokens) ?? 0,
+            cacheReadTokens: numberValue(usage.cacheReadTokens) ?? 0,
+            cacheCreationTokens: numberValue(usage.cacheCreationTokens) ?? 0,
+            totalTokens: numberValue(usage.totalTokens) ?? 0,
+            estimatedCostUsd: numberValue(usage.estimatedCostUsd),
+          }))
+          .sort((left, right) => left.model.localeCompare(right.model))
+      : [];
+
+  return {
+    inputTokens: numberValue(report.input_tokens) ?? 0,
+    outputTokens: numberValue(report.output_tokens) ?? 0,
+    cacheReadTokens: numberValue(report.cache_read_tokens) ?? 0,
+    cacheCreationTokens: numberValue(report.cache_creation_tokens) ?? 0,
+    totalTokens: numberValue(report.total_tokens) ?? 0,
+    estimatedCostUsd: numberValue(report.estimated_cost_usd),
+    modelBreakdown,
+  };
+}
+
+function sumUsage(items: UsageTotals[]): UsageTotals {
+  const models = new Map<string, ModelUsage[]>();
+  for (const item of items) {
+    for (const model of item.modelBreakdown) {
+      models.set(model.model, [...(models.get(model.model) ?? []), model]);
+    }
+  }
+
+  const sum = (values: Array<Omit<ModelUsage, "model">>) => ({
+    inputTokens: values.reduce((total, value) => total + value.inputTokens, 0),
+    outputTokens: values.reduce((total, value) => total + value.outputTokens, 0),
+    cacheReadTokens: values.reduce(
+      (total, value) => total + value.cacheReadTokens,
+      0,
+    ),
+    cacheCreationTokens: values.reduce(
+      (total, value) => total + value.cacheCreationTokens,
+      0,
+    ),
+    totalTokens: values.reduce((total, value) => total + value.totalTokens, 0),
+    estimatedCostUsd: values.every(
+      (value) => value.estimatedCostUsd !== null,
+    )
+      ? round(
+          values.reduce(
+            (total, value) => total + (value.estimatedCostUsd ?? 0),
+            0,
+          ),
+        )
+      : null,
+  });
+
+  return {
+    ...sum(items),
+    modelBreakdown: [...models.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([model, usage]) => ({ model, ...sum(usage) })),
+  };
 }
 
 function latestReportsForWindow(
@@ -168,6 +273,12 @@ export function buildDashboard(
           windowResetsAt,
         );
   const reportList = [...currentReports.values()];
+  const usageByDevice = new Map(
+    [...currentReports].map(([deviceId, report]) => [
+      deviceId,
+      usageFromReport(report),
+    ]),
+  );
   const weightBasis =
     reportList.length === 0
       ? null
@@ -214,23 +325,9 @@ export function buildDashboard(
     );
   }
 
-  const members = memberRows.map((member, index) => {
-    const quotaPercent = numberValue(member.quota_percent) ?? 50;
-    const accountPercent = roundedAllocations[index] ?? 0;
-    const consumed = quotaPercent > 0 ? round((accountPercent / quotaPercent) * 100) : 0;
-    return {
-      id: stringValue(member.id),
-      displayName: stringValue(member.display_name),
-      quotaPercent,
-      accountPercent,
-      personalQuotaConsumedPercent: consumed,
-      personalQuotaRemainingPercent: round(Math.max(0, 100 - consumed)),
-    };
-  });
-
   const devices = rows.devices.map((device) => {
     const lastSyncAt = numberValue(device.last_sync_at);
-    const freshness =
+    const freshness: DeviceFreshness =
       lastSyncAt === null
         ? "never-synced"
         : nowSeconds - lastSyncAt < FRESH_SECONDS
@@ -244,6 +341,46 @@ export function buildDashboard(
       lastSyncAt: iso(lastSyncAt),
       freshness,
       hasCurrentReport: currentReports.has(stringValue(device.id)),
+      localUsage: usageByDevice.get(stringValue(device.id)) ?? null,
+    };
+  });
+
+  const freshnessRank = {
+    synced: 0,
+    "out-of-sync": 1,
+    "never-synced": 2,
+  } as const;
+  const members = memberRows.map((member, index) => {
+    const memberId = stringValue(member.id);
+    const memberDevices = devices.filter(
+      (device) => device.memberId === memberId,
+    );
+    const deviceUsage = memberDevices.flatMap((device) =>
+      device.localUsage ? [device.localUsage] : [],
+    );
+    const quotaPercent = numberValue(member.quota_percent) ?? 50;
+    const accountPercent = roundedAllocations[index] ?? 0;
+    const consumed =
+      quotaPercent > 0 ? round((accountPercent / quotaPercent) * 100) : 0;
+    return {
+      id: memberId,
+      displayName: stringValue(member.display_name),
+      quotaPercent,
+      accountPercent,
+      personalQuotaConsumedPercent: consumed,
+      personalQuotaRemainingPercent: round(Math.max(0, 100 - consumed)),
+      localUsage: deviceUsage.length > 0 ? sumUsage(deviceUsage) : null,
+      deviceCount: memberDevices.length,
+      freshness:
+        memberDevices.length === 0
+          ? null
+          : memberDevices.reduce<DeviceFreshness>(
+              (current, device) =>
+                freshnessRank[device.freshness] > freshnessRank[current]
+                  ? device.freshness
+                  : current,
+              "synced",
+            ),
     };
   });
 
@@ -288,6 +425,8 @@ export function buildDashboard(
     sharedUsedPercent,
     unassignedPercent,
     weightBasis,
+    localUsage:
+      usageByDevice.size > 0 ? sumUsage([...usageByDevice.values()]) : null,
     window: {
       startsAt: iso(windowStartsAt),
       resetsAt: iso(windowResetsAt),

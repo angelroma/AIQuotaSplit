@@ -29,8 +29,22 @@ function fixture(options: {
       tracking_started_at: options.trackingLate
         ? RESET - 1_000
         : RESET - 10_080 * 60,
+      input_tokens: tokens[index] - 30,
+      output_tokens: 10,
+      cache_read_tokens: 15,
+      cache_creation_tokens: 5,
       total_tokens: tokens[index],
       estimated_cost_usd: costs[index],
+      model_breakdown_json: JSON.stringify({
+        "gpt-5": {
+          inputTokens: tokens[index] - 30,
+          outputTokens: 10,
+          cacheReadTokens: 15,
+          cacheCreationTokens: 5,
+          totalTokens: tokens[index],
+          estimatedCostUsd: costs[index],
+        },
+      }),
     }));
 
   return {
@@ -73,6 +87,108 @@ describe("buildDashboard", () => {
       result.members.map((member) => member.personalQuotaConsumedPercent),
     ).toEqual([57, 19]);
     expect(result.unassignedPercent).toBe(0);
+    expect(result.localUsage).toMatchObject({
+      totalTokens: 400,
+      estimatedCostUsd: 4,
+    });
+    expect(result.members[0].localUsage).toMatchObject({
+      totalTokens: 300,
+      estimatedCostUsd: 3,
+    });
+    expect(result.members[0].deviceCount).toBe(1);
+    expect(result.members[0].freshness).toBe("synced");
+    expect(result.devices[0].localUsage?.modelBreakdown[0]).toMatchObject({
+      model: "gpt-5",
+      totalTokens: 300,
+      estimatedCostUsd: 3,
+    });
+  });
+
+  it("aggregates two computers assigned to the same member", () => {
+    const rows = fixture();
+    rows.devices[1].member_id = "member-0";
+    rows.devices[1].last_sync_at = NOW - 24 * 60 * 60;
+    rows.reports[1].member_id = "member-0";
+
+    const result = buildDashboard(rows, NOW);
+
+    expect(result.members[0].deviceCount).toBe(2);
+    expect(result.members[0].freshness).toBe("out-of-sync");
+    expect(result.members[0].localUsage).toMatchObject({
+      totalTokens: 400,
+      estimatedCostUsd: 4,
+    });
+    expect(result.members[0].localUsage?.modelBreakdown).toEqual([
+      expect.objectContaining({
+        model: "gpt-5",
+        totalTokens: 400,
+        estimatedCostUsd: 4,
+      }),
+    ]);
+  });
+
+  it("keeps estimated usage cost unavailable when any current cost is null", () => {
+    const result = buildDashboard(fixture({ costs: [3, null] }), NOW);
+
+    expect(result.localUsage?.estimatedCostUsd).toBeNull();
+    expect(result.members[0].localUsage?.estimatedCostUsd).toBe(3);
+    expect(result.members[1].localUsage?.estimatedCostUsd).toBeNull();
+    expect(result.devices[1].localUsage?.estimatedCostUsd).toBeNull();
+  });
+
+  it("uses only the newest report for each computer in usage totals", () => {
+    const rows = fixture();
+    rows.reports.push({
+      ...rows.reports[0],
+      id: "newer-device-0-report",
+      collected_at: NOW - 1,
+      input_tokens: 470,
+      total_tokens: 500,
+      estimated_cost_usd: 5,
+      model_breakdown_json: JSON.stringify({
+        "gpt-5": {
+          inputTokens: 470,
+          outputTokens: 10,
+          cacheReadTokens: 15,
+          cacheCreationTokens: 5,
+          totalTokens: 500,
+          estimatedCostUsd: 5,
+        },
+      }),
+    });
+
+    const result = buildDashboard(rows, NOW);
+
+    expect(result.localUsage).toMatchObject({
+      totalTokens: 600,
+      estimatedCostUsd: 6,
+    });
+    expect(result.devices[0].localUsage).toMatchObject({
+      totalTokens: 500,
+      estimatedCostUsd: 5,
+    });
+  });
+
+  it("ignores malformed model breakdown JSON", () => {
+    const rows = fixture();
+    rows.reports[0].model_breakdown_json = "{not json";
+
+    const result = buildDashboard(rows, NOW);
+
+    expect(result.devices[0].localUsage?.modelBreakdown).toEqual([]);
+    expect(result.devices[0].localUsage?.totalTokens).toBe(300);
+  });
+
+  it("reports null usage and freshness for a member without computers", () => {
+    const rows = fixture();
+    rows.devices = [rows.devices[0]];
+    rows.reports = [rows.reports[0]];
+
+    const result = buildDashboard(rows, NOW);
+
+    expect(result.members[1].deviceCount).toBe(0);
+    expect(result.members[1].freshness).toBeNull();
+    expect(result.members[1].localUsage).toBeNull();
   });
 
   it("uses tokens for every device when any current report has no cost", () => {
