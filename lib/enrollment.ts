@@ -36,8 +36,15 @@ function defaultToken() {
 
 async function authorized(request: Request, bindings: EnrollmentBindings) {
   const header = request.headers.get("Authorization");
+  const stored = bindings.enrollmentCodeHash;
+  console.info("AIQuotaSplit enrollment binding", {
+    storedType: typeof stored,
+    storedLength: typeof stored === "string" ? stored.length : null,
+    storedParts:
+      typeof stored === "string" ? stored.split("$").map((part) => part.length) : null,
+  });
   if (!header?.startsWith("Enrollment ")) return false;
-  return verifySecret(header.slice("Enrollment ".length), bindings.enrollmentCodeHash);
+  return verifySecret(header.slice("Enrollment ".length), stored);
 }
 
 function enrollmentError(error: unknown) {
